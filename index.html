@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWWOW Analytics Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #fff1f2; /* Rose 50 */
+            color: #57534e; /* Stone 600 */
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #fff0f1; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #fda4af; /* Rose 300 */
+            border-radius: 3px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            margin: auto;
+        }
+        .h-chart-md { height: 350px; }
+        
+        /* Selection Color */
+        ::selection {
+            background: #fecdd3; /* Rose 200 */
+            color: #881337; /* Rose 900 */
+        }
+
+        /* Form Elements */
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2378716c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-rose-200">
+
+    <!-- Header -->
+    <nav class="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-rose-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center h-auto sm:h-16 py-4 sm:py-0">
+                <!-- Logo / Title -->
+                <div class="flex items-center mb-4 sm:mb-0">
+                    <div class="h-8 w-1 bg-rose-400 rounded-full mr-3"></div>
+                    <div>
+                        <h1 class="text-lg font-bold text-stone-700 tracking-tight leading-none">POWWOW <span class="text-rose-400 font-normal">Analytics</span></h1>
+                        <p class="text-[10px] text-stone-400 mt-0.5 tracking-wide">店舗別 課題診断 & スタッフ分析</p>
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+                    <!-- Brand Filter -->
+                    <div class="flex items-center bg-rose-50 rounded-lg px-3 py-1.5 border border-rose-100 w-full sm:w-auto">
+                        <label for="brandFilter" class="text-[10px] font-bold text-rose-400 mr-2 tracking-wider">BRAND</label>
+                        <select id="brandFilter" class="bg-transparent text-xs font-medium text-stone-600 focus:outline-none cursor-pointer w-full">
+                            <option value="all">全業態 (All)</option>
+                            <option value="Premium">Premium</option>
+                            <option value="Standard">Standard</option>
+                        </select>
+                    </div>
+
+                    <!-- Store Filter -->
+                    <div class="flex items-center bg-white rounded-lg px-3 py-1.5 border border-stone-200 w-full sm:w-auto">
+                        <label for="storeSelect" class="text-[10px] font-bold text-stone-400 mr-2 tracking-wider">STORE</label>
+                        <select id="storeSelect" class="bg-transparent text-xs font-medium text-stone-600 focus:outline-none cursor-pointer w-full sm:w-48">
+                            <option value="all">全店舗</option>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Consultant Logic: Store Diagnostics (Always analyzes ALL stores in selected Brand) -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-base font-bold text-stone-700 flex items-center">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400 mr-2"></span>
+                    店舗別 課題診断アラート
+                </h2>
+                <span class="text-[10px] bg-stone-100 text-stone-400 px-2 py-1 rounded border border-stone-200">※選択ブランド内の全店舗を自動診断</span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <!-- Cluster 1: Need New Customers -->
+                <div class="bg-white rounded-xl shadow-sm border border-rose-100 p-5 relative group hover:shadow-md transition-shadow">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-rose-300 rounded-l-xl"></div>
+                    <div class="pl-2">
+                        <h3 class="font-bold text-stone-700 text-sm mb-1">新規集客が必要な店舗</h3>
+                        <p class="text-[11px] text-stone-400 mb-3 leading-relaxed">
+                            稼働率は低いが、<strong class="text-rose-500">リピート率は高い</strong>店舗。プロモーション強化で伸びる可能性大。
+                        </p>
+                        <ul id="list-need-new" class="space-y-2">
+                            <!-- JS Populated -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Cluster 2: Retention Issues -->
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-5 relative group hover:shadow-md transition-shadow">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-stone-400 rounded-l-xl"></div>
+                    <div class="pl-2">
+                        <h3 class="font-bold text-stone-700 text-sm mb-1">リピート定着に課題</h3>
+                        <p class="text-[11px] text-stone-400 mb-3 leading-relaxed">
+                            稼働率が低く、<strong class="text-stone-600">リピート率も低い</strong>店舗。接客・技術レベルの早急な見直しが必要。
+                        </p>
+                        <ul id="list-bad-retention" class="space-y-2">
+                            <!-- JS Populated -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Cluster 3: Price Issues -->
+                <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-5 relative group hover:shadow-md transition-shadow">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 rounded-l-xl"></div>
+                    <div class="pl-2">
+                        <h3 class="font-bold text-stone-700 text-sm mb-1">単価改善が必要な店舗</h3>
+                        <p class="text-[11px] text-stone-400 mb-3 leading-relaxed">
+                            稼働はあるが、ブランド基準より<strong class="text-rose-500">単価が低い</strong>店舗。コースアップ提案の強化を推奨。
+                        </p>
+                        <ul id="list-low-price" class="space-y-2">
+                            <!-- JS Populated -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Cards (Filtered by Brand & Store) -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
+                <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均稼働率</p>
+                <p class="text-2xl font-bold text-stone-700 mt-1" id="kpi-util">-</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
+                <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均リピート率</p>
+                <div class="flex items-baseline mt-1">
+                    <p class="text-2xl font-bold text-stone-700" id="kpi-repeat">-</p>
+                </div>
+                <p class="text-[10px] text-rose-300 mt-1">既存顧客数 / 総施術数</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
+                <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均客単価</p>
+                <p class="text-2xl font-bold text-rose-500 mt-1" id="kpi-price">-</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
+                <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">総指名数</p>
+                <p class="text-2xl font-bold text-stone-700 mt-1" id="kpi-nomination">-</p>
+            </div>
+        </section>
+
+        <!-- Charts Section (Filtered by Brand & Store) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Matrix -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-rose-50 p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-stone-700 text-sm">スタッフ別 生産性マトリクス</h3>
+                    <div class="text-[10px] text-stone-400 flex items-center space-x-3">
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-rose-400 mr-1"></span>Premium</div>
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-stone-400 mr-1"></span>Standard</div>
+                    </div>
+                </div>
+                <div class="chart-container h-chart-md">
+                    <canvas id="mainScatter"></canvas>
+                </div>
+            </div>
+            
+            <!-- Right: Composition -->
+            <div class="bg-white rounded-xl shadow-sm border border-rose-50 p-6 flex flex-col">
+                <h3 class="font-bold text-stone-700 text-sm mb-2">顧客構成比</h3>
+                <p class="text-[10px] text-stone-400 mb-6">
+                    <span class="text-stone-500 font-bold">■ 既存(グレー)</span> の積み上げが安定基盤。<br>
+                    <span class="text-rose-400 font-bold">■ 新規(ピンク)</span> で拡大。
+                </p>
+                <div class="chart-container flex-grow h-chart-md">
+                    <canvas id="storeCompChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff Detail Table (Filtered by Brand & Store) -->
+        <section class="bg-white rounded-xl shadow-sm border border-rose-50 overflow-hidden">
+            <div class="px-6 py-4 border-b border-rose-50 bg-rose-50/30 flex justify-between items-center">
+                <h3 class="font-bold text-stone-700 text-sm">スタッフ詳細パフォーマンス</h3>
+                <div class="flex items-center">
+                    <label for="sortSelect" class="text-[10px] font-bold text-rose-300 mr-2">SORT</label>
+                    <select id="sortSelect" class="text-xs border-0 bg-white text-stone-600 rounded px-3 py-1 ring-1 ring-rose-100 focus:ring-rose-300 cursor-pointer shadow-sm">
+                        <option value="sales">売上順</option>
+                        <option value="util">稼働率順</option>
+                        <option value="price">単価順</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="min-w-full divide-y divide-rose-50">
+                    <thead class="bg-white">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">スタッフ / 店舗</th>
+                            <th class="px-6 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">稼働率</th>
+                            <th class="px-6 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">リピート率</th>
+                            <th class="px-6 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">新規数</th>
+                            <th class="px-6 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">単価</th>
+                            <th class="px-6 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">売上(抜)</th>
+                            <th class="px-6 py-3 text-center text-[10px] font-bold text-stone-400 uppercase tracking-wider whitespace-nowrap">状態診断</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="bg-white divide-y divide-rose-50 text-sm">
+                        <!-- JS Generated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-8 text-[10px] text-stone-300">
+        POWWOW Internal Analytics Dashboard | Generated from Source Data
+    </footer>
+
+    <script>
+        // --- 1. Data Logic ---
+        
+        // Raw Data (Unchanged)
+        const rawRows = [
+            ["石原早苗", "POWWOW Premium そごう横浜店", 5570, 2980, 0, 0, 0, 0, 0.5353, 37, 40, 26, 20, 486656, 14468],
+            ["中谷かおり", "POWWOW Premium そごう横浜店", 8150, 3910, 0, 0, 0, 0, 0.4797, 48, 55, 31, 27, 584537, 13395],
+            ["山崎知子", "POWWOW Premium そごう横浜店", 4280, 1930, 0, 0, 0, 0, 0.4509, 25, 25, 14, 14, 256814, 11299],
+            ["塩澤実雪", "POWWOW Premium そごう横浜店", 8430, 3700, 0, 0, 0, 0, 0.4389, 44, 49, 24, 22, 580585, 14514],
+            ["本間明子", "POWWOW Premium そごう横浜店", 9240, 4110, 0, 0, 0, 0, 0.4448, 58, 71, 41, 31, 636100, 12063],
+            ["押切美織", "POWWOW Premium そごう横浜店", 6930, 2640, 0, 0, 0, 0, 0.3809, 36, 39, 5, 5, 385624, 11782],
+            ["本庄木綿子", "POWWOW Premium そごう横浜店", 6370, 2250, 0, 0, 0, 0, 0.3532, 30, 30, 24, 18, 353126, 12948],
+            ["田村奈美", "POWWOW Premium そごう横浜店", 9200, 2660, 0, 0, 0, 0, 0.2891, 32, 36, 13, 10, 406159, 13961],
+            ["塩原千代江", "POWWOW Premium 丸ビル店", 7510, 4000, 0, 0, 0, 0, 0.5326, 49, 65, 43, 30, 609025, 13672],
+            ["長沼瞳", "POWWOW Premium 丸ビル店", 9650, 4240, 0, 0, 0, 0, 0.4393, 60, 67, 34, 28, 620888, 11382],
+            ["結城浩美", "POWWOW Premium 丸ビル店", 4630, 1770, 0, 0, 0, 0, 0.3822, 24, 31, 12, 11, 271212, 12430],
+            ["窪田千穂", "POWWOW Premium 丸ビル店", 4000, 1490, 0, 0, 0, 0, 0.3725, 22, 25, 11, 0, 221604, 11080],
+            ["遠藤はるか", "POWWOW Premium 丸ビル店", 5030, 1500, 0, 0, 0, 0, 0.2982, 20, 21, 11, 0, 175767, 9667],
+            ["田村彩美", "POWWOW Premium日本橋高島屋店", 10190, 5130, 0, 0, 0, 0, 0.5034, 77, 142, 27, 24, 736989, 10528],
+            ["丸山小百合", "POWWOW Premium日本橋高島屋店", 4130, 1940, 0, 0, 0, 0, 0.4697, 28, 55, 15, 14, 307293, 12072],
+            ["池田知恵子", "POWWOW Premium日本橋高島屋店", 11240, 5020, 0, 0, 0, 0, 0.4466, 72, 145, 11, 9, 709044, 10832],
+            ["窪田千穂", "POWWOW Premium日本橋高島屋店", 7780, 3080, 0, 0, 0, 0, 0.3958, 44, 76, 65, 50, 435612, 10890],
+            ["遠藤はるか", "POWWOW Premium日本橋高島屋店", 6110, 2110, 0, 0, 0, 0, 0.3453, 31, 43, 44, 0, 286373, 10161],
+            ["西谷唯", "POWWOW Premium日本橋高島屋店", 5600, 1120, 0, 0, 0, 0, 0.2000, 13, 32, 0, 0, 177387, 15009],
+            ["人見智美", "POWWOW グランデュオ蒲田店", 11650, 6380, 0, 0, 0, 0, 0.5476, 98, 102, 75, 49, 796096, 8935],
+            ["寺田真純", "POWWOW グランデュオ蒲田店", 11170, 4990, 0, 0, 0, 0, 0.4467, 79, 81, 87, 0, 562158, 7827],
+            ["塩澤", "POWWOW グランデュオ蒲田店", 540, 240, 0, 0, 0, 0, 0.4444, 4, 5, 2, 0, 29540, 8123],
+            ["竹内千恵美", "POWWOW グランデュオ蒲田店", 4360, 1850, 0, 0, 0, 0, 0.4243, 31, 33, 12, 11, 215511, 7647],
+            ["武田玲子", "POWWOW グランデュオ蒲田店", 6520, 2770, 0, 0, 0, 0, 0.4248, 42, 43, 20, 16, 327522, 8577],
+            ["新海", "POWWOW グランデュオ蒲田店", 2040, 820, 0, 0, 0, 0, 0.4019, 13, 13, 22, 0, 53434, 4521],
+            ["ヘルプ１", "POWWOW グランデュオ蒲田店", 4860, 1170, 0, 0, 0, 0, 0.2407, 20, 20, 22, 0, 99101, 5450],
+            ["川瀬淳子", "POWWOW そごう大宮店", 5740, 2760, 0, 0, 0, 0, 0.4808, 46, 46, 11, 0, 315579, 7546],
+            ["川合恵理子", "POWWOW そごう大宮店", 9900, 4800, 0, 0, 0, 0, 0.4848, 73, 79, 65, 0, 548406, 8263],
+            ["齊藤香代", "POWWOW そごう大宮店", 870, 450, 0, 0, 0, 0, 0.5172, 7, 7, 0, 0, 49361, 7756],
+            ["加藤樹美", "POWWOW そごう大宮店", 9630, 4290, 0, 0, 0, 0, 0.4454, 68, 68, 15, 11, 462915, 7488],
+            ["早川智子", "POWWOW そごう大宮店", 11230, 4890, 0, 0, 0, 0, 0.4354, 75, 77, 21, 11, 579304, 8496],
+            ["山田未来", "POWWOW マルイシティ横浜店", 3910, 1990, 0, 0, 0, 0, 0.5089, 24, 24, 33, 0, 213453, 9783],
+            ["佐藤利香", "POWWOW マルイシティ横浜店", 6770, 3270, 0, 0, 0, 0, 0.4834, 24, 24, 19, 16, 359362, 9411],
+            ["竹田泉", "POWWOW マルイシティ横浜店", 6150, 2990, 0, 0, 0, 0, 0.4861, 41, 41, 76, 0, 329414, 8837],
+            ["小澤草子", "POWWOW マルイシティ横浜店", 8040, 3490, 0, 0, 0, 0, 0.4344, 49, 49, 75, 0, 373196, 8377],
+            ["藤井みなみ", "POWWOW マルイシティ横浜店", 4850, 1960, 0, 0, 0, 0, 0.4041, 29, 29, 0, 0, 203725, 7727],
+            ["岡田あかり", "POWWOW マルイシティ横浜店", 1540, 690, 0, 0, 0, 0, 0.4480, 10, 10, 21, 0, 73468, 8081],
+            ["布施由希子", "POWWOW マルイシティ横浜店", 5250, 1710, 0, 0, 0, 0, 0.3257, 22, 22, 0, 0, 175795, 8789],
+            ["金森文誉", "POWWOW メルサ自由が丘店", 6550, 3600, 0, 0, 0, 0, 0.5496, 51, 52, 44, 32, 469355, 10123],
+            ["中筋貴子", "POWWOW メルサ自由が丘店", 11080, 4940, 0, 0, 0, 0, 0.4458, 66, 66, 51, 41, 626257, 10437],
+            ["木村沙絵", "POWWOW メルサ自由が丘店", 4020, 1840, 0, 0, 0, 0, 0.4577, 24, 25, 21, 19, 248305, 11380],
+            ["林美映", "POWWOW メルサ自由が丘店", 8050, 2870, 0, 0, 0, 0, 0.3565, 43, 52, 99, 0, 323944, 8286],
+            ["青木", "POWWOW メルサ自由が丘店", 4400, 890, 0, 0, 0, 0, 0.2022, 12, 12, 0, 0, 90916, 8334],
+            ["安田好恵", "POWWOW ヤエチカ店", 2720, 1489, 0, 0, 0, 0, 0.5474, 19, 22, 0, 0, 139251, 8061],
+            ["福田容子", "POWWOW ヤエチカ店", 4480, 2470, 0, 0, 0, 0, 0.5513, 36, 37, 23, 15, 207962, 6354],
+            ["古杉幸子", "POWWOW ヤエチカ店", 4320, 2190, 0, 0, 0, 0, 0.5069, 32, 32, 24, 18, 239997, 8249],
+            ["小川美里", "POWWOW ヤエチカ店", 10130, 5250, 0, 0, 0, 0, 0.5182, 74, 79, 30, 24, 382484, 5685],
+            ["肴倉真由美", "POWWOW ヤエチカ店", 11040, 5410, 0, 0, 0, 0, 0.4900, 86, 90, 20, 18, 390815, 4998],
+            ["佐藤嘉代", "POWWOW ヤエチカ店", 4320, 2010, 0, 0, 0, 0, 0.4652, 31, 31, 11, 10, 196456, 6971],
+            ["篠木美代子", "POWWOW ヤエチカ店", 10630, 5050, 0, 0, 0, 0, 0.4758, 28, 76, 5, 0, 1529095, 20512],
+            ["田中景子", "POWWOW ヤエチカ店", 4970, 1880, 0, 0, 0, 0, 0.3782, 26, 27, 13, 10, 118323, 5006],
+            ["吉澤", "POWWOW ヤエチカ店", 6600, 2340, 0, 0, 0, 0, 0.3545, 40, 41, 4, 0, 155336, 4271],
+            ["泉", "POWWOW ヤエチカ店", 1280, 280, 0, 0, 0, 0, 0.2187, 3, 3, 2, 0, 11193, 4104],
+            ["浜田桃実", "POWWOW ヤエチカ店", 2040, 270, 0, 0, 0, 0, 0.1323, 9, 9, 0, 0, 28281, 3456],
+            ["西川和華", "POWWOW ヤエチカ店", 600, 70, 0, 0, 0, 0, 0.1166, 2, 2, 0, 0, 6327, 3480],
+            ["田中晴奈", "POWWOW ヤエチカ店", 1080, 100, 0, 0, 0, 0, 0.0925, 3, 3, 0, 0, 9036, 3313],
+            ["牧野ひろみ", "POWWOW 松坂屋高槻店", 2230, 990, 0, 0, 0, 0, 0.4439, 12, 19, 0, 0, 123443, 11315],
+            ["近藤まゆみ", "POWWOW 松坂屋高槻店", 4050, 1740, 0, 0, 0, 0, 0.4296, 23, 35, 4, 0, 190247, 9098],
+            ["村本千香子", "POWWOW 松坂屋高槻店", 6520, 2610, 0, 0, 0, 0, 0.4003, 36, 49, 11, 9, 302556, 9244],
+            ["秋山理絵", "POWWOW 松坂屋高槻店", 9830, 3860, 0, 0, 0, 0, 0.3926, 53, 66, 18, 13, 412429, 8559],
+            ["城代理恵", "POWWOW 松坂屋高槻店", 7190, 2460, 0, 0, 0, 0, 0.3421, 35, 54, 16, 12, 271310, 8526],
+            ["高橋凛菜", "POWWOW 松坂屋高槻店", 6630, 1510, 0, 0, 0, 0, 0.2277, 24, 25, 2, 0, 133775, 6131],
+            ["土岐由加利", "POWWOW 松坂屋上野店", 8920, 4360, 0, 0, 0, 0, 0.4887, 58, 68, 32, 28, 491165, 9315],
+            ["槇野麻香", "POWWOW 松坂屋上野店", 10540, 4820, 0, 0, 0, 0, 0.4573, 69, 75, 41, 30, 563255, 8979],
+            ["酒井千壽", "POWWOW 上大岡店", 6340, 3340, 0, 0, 0, 0, 0.5268, 39, 39, 9, 0, 385881, 10883],
+            ["佐藤江美", "POWWOW 上大岡店", 2530, 1260, 0, 0, 0, 0, 0.4981, 16, 17, 13, 13, 152823, 10506],
+            ["外木朋美", "POWWOW 上大岡店", 4620, 2300, 0, 0, 0, 0, 0.4978, 30, 30, 12, 8, 246091, 9023],
+            ["岸本雅子", "POWWOW 上大岡店", 3580, 1720, 0, 0, 0, 0, 0.4804, 22, 22, 2, 0, 191997, 9599],
+            ["渡邊多果子", "POWWOW 上大岡店", 9720, 4820, 0, 0, 0, 0, 0.4958, 66, 66, 13, 10, 536884, 8948],
+            ["高梨史子", "POWWOW 上大岡店", 7920, 3860, 0, 0, 0, 0, 0.4873, 50, 50, 24, 20, 447408, 9842],
+            ["藤井ひとみ", "POWWOW 上大岡店", 10130, 4670, 0, 0, 0, 0, 0.4616, 63, 64, 10, 7, 491345, 8578],
+            ["岡本栞", "POWWOW 上大岡店", 4190, 1800, 0, 0, 0, 0, 0.4295, 25, 25, 9, 6, 189372, 8332],
+            ["布施由希子", "POWWOW 上大岡店", 5120, 2140, 0, 0, 0, 0, 0.4179, 27, 28, 5, 5, 243790, 9932],
+            ["小川 琴音", "POWWOW 上大岡店", 9440, 3850, 0, 0, 0, 0, 0.4078, 48, 48, 18, 14, 409762, 9390],
+            ["村上友紀恵", "POWWOW 大丸京都店", 9860, 2770, 0, 0, 0, 0, 0.2809, 37, 52, 25, 18, 317208, 9430],
+            ["實崎由香", "POWWOW 大丸京都店", 7600, 1890, 0, 0, 0, 0, 0.2486, 22, 30, 13, 10, 204429, 10221],
+            ["坂本舞", "POWWOW 大丸京都店", 7270, 1670, 0, 0, 0, 0, 0.2297, 26, 27, 2, 0, 164222, 6947],
+            ["宮川ゆみ", "POWWOW 大丸京都店", 10040, 2230, 0, 0, 0, 0, 0.2221, 32, 40, 5, 5, 251062, 8630],
+            ["辻美紀", "POWWOW 大丸京都店", 10290, 2280, 0, 0, 0, 0, 0.2215, 30, 35, 3, 3, 239408, 8778],
+            ["吉田葉子", "POWWOW 大丸京都店", 8890, 1680, 0, 0, 0, 0, 0.1889, 24, 24, 1, 0, 170539, 7816],
+            ["木村奈緒美", "POWWOW 池袋東口店", 1440, 930, 0, 0, 0, 0, 0.6458, 9, 9, 9, 5, 141314, 17271],
+            ["前田佳奈", "POWWOW 池袋東口店", 1240, 620, 0, 0, 0, 0, 0.5000, 8, 8, 7, 5, 80916, 11126],
+            ["滝澤裕佳子", "POWWOW 池袋東口店", 7160, 3300, 0, 0, 0, 0, 0.4608, 46, 48, 13, 9, 374514, 8955],
+            ["高島麻美子", "POWWOW 池袋東口店", 1970, 830, 0, 0, 0, 0, 0.4213, 10, 10, 0, 0, 104880, 11536],
+            ["ヘルプ", "POWWOW 池袋東口店", 470, 180, 0, 0, 0, 0, 0.3829, 3, 3, 0, 0, 22345, 8193],
+            ["丸山美沙", "POWWOW 池袋東口店", 4510, 1520, 0, 0, 0, 0, 0.3371, 18, 21, 4, 3, 184801, 11293],
+            ["牧真紀子", "POWWOW 池袋東口店", 9330, 3100, 0, 0, 0, 0, 0.3322, 36, 36, 33, 20, 384715, 11755],
+            ["小山亜希子", "POWWOW 池袋東口店", 12940, 4150, 0, 0, 0, 0, 0.3207, 60, 77, 18, 16, 516591, 9470],
+            ["河崎まゆみ", "POWWOW 池袋東口店", 3690, 1110, 0, 0, 0, 0, 0.3008, 13, 14, 13, 5, 134331, 11366],
+            ["吉野邦子", "POWWOW 東武船橋駅店", 10760, 5530, 0, 0, 0, 0, 0.5139, 78, 78, 21, 18, 618737, 8725],
+            ["酒井南美", "POWWOW 東武船橋駅店", 9570, 4890, 0, 0, 0, 0, 0.5109, 71, 71, 20, 16, 592178, 9174],
+            ["中村裕子", "POWWOW 東武船橋駅店", 11120, 5290, 0, 0, 0, 0, 0.4757, 77, 77, 20, 14, 628847, 8983],
+            ["倉島啓子", "POWWOW 有楽町マルイ店", 2260, 1270, 0, 0, 0, 0, 0.5619, 18, 20, 2, 2, 140137, 8564],
+            ["酒井かおり", "POWWOW 有楽町マルイ店", 4230, 2360, 0, 0, 0, 0, 0.5579, 33, 39, 22, 17, 270602, 9020],
+            ["中森梓", "POWWOW 有楽町マルイ店", 2110, 1118, 0, 0, 0, 0, 0.5298, 16, 20, 1, 1, 144319, 9922],
+            ["田邊", "POWWOW 有楽町マルイ店", 9960, 4530, 0, 0, 0, 0, 0.4548, 70, 70, 12, 7, 526150, 8268],
+            ["有楽町ヘルプ", "POWWOW 有楽町マルイ店", 4210, 1830, 0, 0, 0, 0, 0.4346, 28, 29, 0, 0, 182764, 7180],
+            ["有楽町ヘルプ2", "POWWOW 有楽町マルイ店", 910, 330, 0, 0, 0, 0, 0.3626, 5, 6, 0, 0, 26482, 5826],
+            ["手代木舞", "POWWOW 有楽町マルイ店", 3960, 1050, 0, 0, 0, 0, 0.2651, 16, 16, 1, 1, 94748, 6514],
+            ["青木彩恵", "女性のための整体POWWOW エソラ池袋店", 11520, 5090, 0, 0, 0, 0, 0.4418, 71, 87, 46, 39, 632695, 9802],
+            ["須藤みどり", "女性のための整体POWWOW エソラ池袋店", 11100, 4770, 0, 0, 0, 0, 0.4297, 64, 70, 54, 44, 593179, 10195],
+            ["山田恵美子", "女性のための整体POWWOW エソラ池袋店", 2620, 920, 0, 0, 0, 0, 0.3511, 11, 11, 9, 8, 108637, 10863],
+            ["赤井悦子", "女性のための整体POWWOW エソラ池袋店", 10440, 3200, 0, 0, 0, 0, 0.3065, 41, 41, 13, 9, 408441, 10958],
+            ["三浦沙世子", "女性のための整体POWWOW エソラ池袋店", 10020, 2610, 0, 0, 0, 0, 0.2604, 38, 40, 5, 5, 327831, 9489]
+        ];
+
+        const staffData = rawRows.map(r => {
+            const treatTotal = r[10];
+            const custExisting = r[9];
+            const newCount = Math.max(0, treatTotal - custExisting);
+            const isPremium = r[1].includes("Premium") || r[1].includes("女性のための整体");
+
+            return {
+                name: r[0],
+                store: r[1],
+                totalShift: r[2],
+                treatmentTime: r[3],
+                util: r[8], 
+                custExisting: custExisting,
+                treatTotal: treatTotal,
+                newCount: newCount,
+                nomination: r[11],
+                sales: r[13],
+                price: r[14],
+                brand: isPremium ? 'Premium' : 'Standard'
+            };
+        });
+
+        // Store Aggregation
+        function getStoreData(filteredStaff) {
+            const storeMap = {};
+            filteredStaff.forEach(s => {
+                const sn = s.store;
+                if (!storeMap[sn]) {
+                    storeMap[sn] = { 
+                        name: sn, 
+                        brand: s.brand, 
+                        totalShift: 0, 
+                        treatmentTime: 0, 
+                        sales: 0, 
+                        treatTotal: 0, 
+                        custExisting: 0, 
+                        newCount: 0 
+                    };
+                }
+                storeMap[sn].totalShift += s.totalShift;
+                storeMap[sn].treatmentTime += s.treatmentTime;
+                storeMap[sn].sales += s.sales;
+                storeMap[sn].treatTotal += s.treatTotal;
+                storeMap[sn].custExisting += s.custExisting;
+                storeMap[sn].newCount += s.newCount;
+            });
+
+            return Object.values(storeMap).map(s => {
+                s.util = s.totalShift > 0 ? s.treatmentTime / s.totalShift : 0;
+                s.price = s.treatTotal > 0 ? s.sales / s.treatTotal : 0;
+                s.repeatRate = s.treatTotal > 0 ? s.custExisting / s.treatTotal : 0;
+                return s;
+            });
+        }
+
+        // --- 2. Formatters & State ---
+        const formatJPY = n => new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumSignificantDigits: 3 }).format(n);
+        const formatPct = n => (n * 100).toFixed(1) + '%';
+        const formatComma = n => new Intl.NumberFormat('ja-JP').format(n);
+
+        let currentBrand = 'all';
+        let currentStore = 'all';
+        let sortKey = 'sales';
+        let chartScatter, chartStore;
+
+        // --- 3. Update Logic ---
+        function init() {
+            populateStoreSelect();
+            
+            document.getElementById('brandFilter').addEventListener('change', e => {
+                currentBrand = e.target.value;
+                currentStore = 'all'; // Reset store on brand change
+                populateStoreSelect();
+                updateAll();
+            });
+
+            document.getElementById('storeSelect').addEventListener('change', e => {
+                currentStore = e.target.value;
+                updateAll();
+            });
+
+            document.getElementById('sortSelect').addEventListener('change', e => {
+                sortKey = e.target.value;
+                updateAll();
+            });
+            updateAll();
+        }
+
+        function populateStoreSelect() {
+            const select = document.getElementById('storeSelect');
+            const validStores = [...new Set(staffData
+                .filter(d => currentBrand === 'all' || d.brand === currentBrand)
+                .map(d => d.store)
+            )].sort();
+
+            select.innerHTML = '<option value="all">全店舗</option>';
+            validStores.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s.replace('POWWOW ','').replace('女性のための整体','');
+                select.appendChild(opt);
+            });
+            select.value = currentStore;
+        }
+
+        function updateAll() {
+            // 1. Get staffs based on Brand (for global context like Diagnostics)
+            let brandStaff = staffData.filter(d => d.totalShift > 0);
+            if (currentBrand !== 'all') {
+                brandStaff = brandStaff.filter(d => d.brand === currentBrand);
+            }
+            
+            // 2. Get staffs based on Store (for main view)
+            let activeStaff = brandStaff;
+            if (currentStore !== 'all') {
+                activeStaff = activeStaff.filter(d => d.store === currentStore);
+            }
+
+            // Diagnostics uses Brand scope (to show opportunities across the filtered brand)
+            const brandStoreStats = getStoreData(brandStaff);
+            updateDiagnostics(brandStoreStats);
+
+            // KPI/Charts use Active Scope (Selected Store or All)
+            const activeStoreStats = getStoreData(activeStaff);
+            updateKPIs(activeStaff);
+            updateCharts(activeStaff, activeStoreStats);
+            updateTable(activeStaff);
+        }
+
+        // --- 4. Diagnostics Logic (Unchanged Logic, New Styling) ---
+        function updateDiagnostics(stores) {
+            const listNew = document.getElementById('list-need-new');
+            const listRet = document.getElementById('list-bad-retention');
+            const listPrc = document.getElementById('list-low-price');
+
+            listNew.innerHTML = '';
+            listRet.innerHTML = '';
+            listPrc.innerHTML = '';
+
+            const UTIL_LOW = 0.45;
+            const REPEAT_GOOD = 0.55; 
+            const REPEAT_BAD = 0.55;  
+            const PRICE_STD_LOW = 7000;
+            const PRICE_PRM_LOW = 9000;
+
+            let hasNew = false, hasRet = false, hasPrc = false;
+
+            stores.forEach(s => {
+                const simpleName = s.name.replace('POWWOW ','').replace('女性のための整体','').replace('Premium','').trim();
+                const utilStr = formatPct(s.util);
+                const repStr = formatPct(s.repeatRate);
+                const prcStr = formatJPY(s.price);
+
+                if (s.util < UTIL_LOW && s.repeatRate >= REPEAT_GOOD) {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-rose-50 px-2 py-1.5 rounded text-xs";
+                    li.innerHTML = `<span class="font-bold text-stone-600">${simpleName}</span> <span class="text-[10px] text-rose-500 font-medium tracking-tight">稼働${utilStr} / リピ${repStr}</span>`;
+                    listNew.appendChild(li);
+                    hasNew = true;
+                }
+
+                if (s.util < UTIL_LOW && s.repeatRate < REPEAT_BAD) {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-stone-100 px-2 py-1.5 rounded text-xs";
+                    li.innerHTML = `<span class="font-bold text-stone-600">${simpleName}</span> <span class="text-[10px] text-stone-500 font-medium tracking-tight">稼働${utilStr} / リピ${repStr}</span>`;
+                    listRet.appendChild(li);
+                    hasRet = true;
+                }
+
+                const priceTarget = s.brand === 'Premium' ? PRICE_PRM_LOW : PRICE_STD_LOW;
+                if (s.price < priceTarget) {
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-rose-100 px-2 py-1.5 rounded text-xs";
+                    li.innerHTML = `<span class="font-bold text-stone-600">${simpleName}</span> <span class="text-[10px] text-rose-600 font-medium tracking-tight">${prcStr}</span>`;
+                    listPrc.appendChild(li);
+                    hasPrc = true;
+                }
+            });
+
+            if(!hasNew) listNew.innerHTML = '<li class="text-[10px] text-stone-400 pl-1">該当店舗なし</li>';
+            if(!hasRet) listRet.innerHTML = '<li class="text-[10px] text-stone-400 pl-1">該当店舗なし</li>';
+            if(!hasPrc) listPrc.innerHTML = '<li class="text-[10px] text-stone-400 pl-1">該当店舗なし</li>';
+        }
+
+        function updateKPIs(data) {
+            const sumUtilNum = data.reduce((a,b) => a + b.treatmentTime, 0);
+            const sumUtilDen = data.reduce((a,b) => a + b.totalShift, 0);
+            const avgUtil = sumUtilDen ? sumUtilNum / sumUtilDen : 0;
+
+            const sumSales = data.reduce((a,b) => a + b.sales, 0);
+            const sumTreat = data.reduce((a,b) => a + b.treatTotal, 0);
+            const avgPrice = sumTreat ? sumSales / sumTreat : 0;
+
+            const sumExist = data.reduce((a,b) => a + b.custExisting, 0);
+            const avgRep = sumTreat ? sumExist / sumTreat : 0;
+            const sumNom = data.reduce((a,b) => a + b.nomination, 0);
+
+            document.getElementById('kpi-util').textContent = formatPct(avgUtil);
+            document.getElementById('kpi-repeat').textContent = formatPct(avgRep);
+            document.getElementById('kpi-price').textContent = formatJPY(avgPrice);
+            document.getElementById('kpi-nomination').textContent = formatComma(sumNom);
+        }
+
+        function updateCharts(staff, stores) {
+            // Colors
+            const colPremium = 'rgba(244, 63, 94, 0.7)'; // Rose 500
+            const colStandard = 'rgba(168, 162, 158, 0.6)'; // Stone 400
+            const colBorderPremium = '#e11d48'; // Rose 600
+            const colBorderStandard = '#78716c'; // Stone 500
+            
+            // 1. Scatter
+            const ctxSc = document.getElementById('mainScatter').getContext('2d');
+            if(chartScatter) chartScatter.destroy();
+
+            chartScatter = new Chart(ctxSc, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Staff',
+                        data: staff.map(d => ({ x: d.util * 100, y: d.sales, name: d.name, brand: d.brand })),
+                        backgroundColor: (ctx) => ctx.raw?.brand === 'Premium' ? colPremium : colStandard,
+                        borderColor: (ctx) => ctx.raw?.brand === 'Premium' ? colBorderPremium : colBorderStandard,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: { 
+                            backgroundColor: '#fff',
+                            titleColor: '#44403c',
+                            bodyColor: '#57534e',
+                            borderColor: '#e7e5e4',
+                            borderWidth: 1,
+                            callbacks: { label: c => `${c.raw.name}: ${formatJPY(c.raw.y)} / 稼働${c.raw.x.toFixed(1)}%` } 
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: '稼働率 (%)', color: '#a8a29e', font: {size: 10} }, 
+                            grid: { color: '#f5f5f4' },
+                            ticks: { color: '#a8a29e', font: {size: 10} }
+                        },
+                        y: { 
+                            title: { display: true, text: '売上 (円)', color: '#a8a29e', font: {size: 10} }, 
+                            beginAtZero: true, 
+                            grid: { color: '#f5f5f4' },
+                            ticks: { color: '#a8a29e', font: {size: 10} }
+                        }
+                    }
+                }
+            });
+
+            // 2. Bar (Store Comp)
+            const ctxSt = document.getElementById('storeCompChart').getContext('2d');
+            if(chartStore) chartStore.destroy();
+
+            // Limit top stores visually if many selected
+            const sortedStores = [...stores].sort((a,b) => b.treatTotal - a.treatTotal).slice(0, 12);
+
+            chartStore = new Chart(ctxSt, {
+                type: 'bar',
+                data: {
+                    labels: sortedStores.map(s => s.name.replace('POWWOW ','').replace('女性のための整体','').slice(0,8)),
+                    datasets: [
+                        { label: '既存(リピート)', data: sortedStores.map(s => s.custExisting), backgroundColor: '#d6d3d1' }, // Stone 300
+                        { label: '新規', data: sortedStores.map(s => s.newCount), backgroundColor: '#fda4af' } // Rose 300
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#fff',
+                            titleColor: '#44403c',
+                            bodyColor: '#57534e',
+                            borderColor: '#e7e5e4',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: { 
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#a8a29e', font: {size: 9} } }, 
+                        y: { stacked: true, grid: { color: '#f5f5f4' }, ticks: { color: '#a8a29e', font: {size: 9} } } 
+                    }
+                }
+            });
+        }
+
+        function updateTable(data) {
+            const table = document.getElementById('tableBody');
+            table.innerHTML = '';
+
+            data.sort((a,b) => {
+                if(sortKey === 'sales') return b.sales - a.sales;
+                if(sortKey === 'util') return b.util - a.util;
+                if(sortKey === 'price') return b.price - a.price;
+                return 0;
+            });
+
+            data.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-rose-50/50 transition border-b border-rose-50";
+                
+                const repeatRate = d.treatTotal > 0 ? d.custExisting / d.treatTotal : 0;
+                
+                let statusHTML = '<span class="text-stone-300">-</span>';
+                if(d.util < 0.4 && repeatRate > 0.6) statusHTML = '<span class="text-[10px] bg-rose-50 text-rose-400 px-2 py-0.5 rounded-full border border-rose-100">集客不足</span>';
+                else if(d.util < 0.4 && repeatRate < 0.4) statusHTML = '<span class="text-[10px] bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full border border-stone-200">定着難</span>';
+                else if(d.util > 0.5) statusHTML = '<span class="text-[10px] bg-rose-100 text-rose-500 px-2 py-0.5 rounded-full border border-rose-200">Good</span>';
+
+                const nameClass = d.brand === 'Premium' ? 'text-rose-500 font-medium' : 'text-stone-600 font-medium';
+                const premiumBadge = d.brand === 'Premium' ? '<span class="ml-1 text-[9px] text-rose-300 border border-rose-200 px-1 rounded-sm">P</span>' : '';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <div class="${nameClass} text-xs">${d.name} ${premiumBadge}</div>
+                        <div class="text-[10px] text-stone-400 mt-0.5">${d.store.replace('POWWOW ','').replace('女性のための整体','')}</div>
+                    </td>
+                    <td class="px-6 py-3 text-right text-stone-500 font-medium">${formatPct(d.util)}</td>
+                    <td class="px-6 py-3 text-right text-stone-400">${formatPct(repeatRate)}</td>
+                    <td class="px-6 py-3 text-right text-rose-400 font-medium">${d.newCount}</td>
+                    <td class="px-6 py-3 text-right text-stone-500">${formatComma(d.price)}</td>
+                    <td class="px-6 py-3 text-right font-bold text-stone-600">${formatComma(d.sales)}</td>
+                    <td class="px-6 py-3 text-center">${statusHTML}</td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
