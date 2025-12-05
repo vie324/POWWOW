@@ -101,7 +101,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-        <!-- Consultant Logic: Store Diagnostics (Always analyzes ALL stores in selected Brand) -->
+        <!-- Consultant Logic: Store Diagnostics -->
         <section>
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-base font-bold text-stone-700 flex items-center">
@@ -157,22 +157,29 @@
         </section>
 
         <!-- KPI Cards (Filtered by Brand & Store) -->
-        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <!-- Sales (Added) -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
+                <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">期間総売上</p>
+                <p class="text-2xl font-bold text-stone-700 mt-1" id="kpi-sales">-</p>
+            </div>
+            
             <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
                 <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均稼働率</p>
                 <p class="text-2xl font-bold text-stone-700 mt-1" id="kpi-util">-</p>
             </div>
+            
             <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
                 <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均リピート率</p>
-                <div class="flex items-baseline mt-1">
-                    <p class="text-2xl font-bold text-stone-700" id="kpi-repeat">-</p>
-                </div>
+                <p class="text-2xl font-bold text-stone-600 mt-1" id="kpi-repeat">-</p>
                 <p class="text-[10px] text-rose-300 mt-1">既存顧客数 / 総施術数</p>
             </div>
+            
             <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
                 <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">平均客単価</p>
                 <p class="text-2xl font-bold text-rose-500 mt-1" id="kpi-price">-</p>
             </div>
+            
             <div class="bg-white p-5 rounded-xl shadow-sm border border-rose-50 hover:border-rose-100 transition-colors">
                 <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wide">総指名数</p>
                 <p class="text-2xl font-bold text-stone-700 mt-1" id="kpi-nomination">-</p>
@@ -249,8 +256,6 @@
 
     <script>
         // --- 1. Data Logic ---
-        
-        // Raw Data (Unchanged)
         const rawRows = [
             ["石原早苗", "POWWOW Premium そごう横浜店", 5570, 2980, 0, 0, 0, 0, 0.5353, 37, 40, 26, 20, 486656, 14468],
             ["中谷かおり", "POWWOW Premium そごう横浜店", 8150, 3910, 0, 0, 0, 0, 0.4797, 48, 55, 31, 27, 584537, 13395],
@@ -448,6 +453,7 @@
 
         function populateStoreSelect() {
             const select = document.getElementById('storeSelect');
+            // Filter stores based on current Brand
             const validStores = [...new Set(staffData
                 .filter(d => currentBrand === 'all' || d.brand === currentBrand)
                 .map(d => d.store)
@@ -555,6 +561,7 @@
             const avgRep = sumTreat ? sumExist / sumTreat : 0;
             const sumNom = data.reduce((a,b) => a + b.nomination, 0);
 
+            document.getElementById('kpi-sales').textContent = formatJPY(sumSales);
             document.getElementById('kpi-util').textContent = formatPct(avgUtil);
             document.getElementById('kpi-repeat').textContent = formatPct(avgRep);
             document.getElementById('kpi-price').textContent = formatJPY(avgPrice);
